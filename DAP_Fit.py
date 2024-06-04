@@ -74,6 +74,13 @@ class DAP_Set:
         test_data = self.dap_set + e
         return sorted(test_data, reverse=True)
 
+class DAP_Set_3D:
+    def __init__(self, dap_set):
+        self.dap_set = dap_set
+    def set(self, e):
+        test_data = self.dap_set + e
+        return sorted(test_data, reverse=True)
+
 
 # Blocks off Individual Elements which have been matched from being matched again
 def plus_blocking(m_index, mat, theta_r):
@@ -101,22 +108,23 @@ def reshape_detuning(det, det_idx, fit_class):
 
 
 # Detuning Calculation from Fitting Matrix
-def det_calc(det_mat, thresh):
+# TODO: Rename variables here and then rename variables in supplementary
+def det_calc(det_mat, w_co):
     det_mat_c = det_mat.copy()
     det_mat_c[np.isnan(det_mat_c)] = 0
-    det_mat_c[np.where((det_mat_c > thresh))] = 0
+    det_mat_c[np.where((det_mat_c > w_co))] = 0
     det_sum_arr = np.sum(det_mat_c, axis=1)
-    norm_array = co_calc(det_mat, thresh) + 1  # Don't Divide By Zero
+    norm_array = co_calc(det_mat, w_co) + 1  # Don't Divide By Zero
     det_sum_arr = np.divide(det_sum_arr, norm_array)
     return det_sum_arr
 
 
 # Coincidence Calculation on Detuning Matrix
-def co_calc(det_mat, co_lim, penalty_func_class=None):
+def co_calc(det_mat, w_co, penalty_func_class=None):
     det_mat2 = det_mat.copy()
-    det_mat2[np.where((det_mat > co_lim))] = np.NaN
+    det_mat2[np.where((det_mat2 > w_co))] = np.NaN
     det_mat2[np.isnan(det_mat2)] = np.inf
-    det_mat2[np.where((det_mat2 < co_lim))] = 1
+    det_mat2[np.where((det_mat2 < w_co))] = 1
     det_mat2[np.where((det_mat2 != 1))] = 0
     det_mat2 = Co_Penalty(penalty_func_class).apply(det_mat2)
     co_arr = np.sum(det_mat2, axis=1)
@@ -182,5 +190,21 @@ def main():
     plt.show()
 
 
+def main2():
+    dists = hex_lattice_maker(11, a=2.51, c=6.66)[0:100]
+    sim_data = energy_from_distance(dists, 1.5, dielectric=8.9)
+    fit_energies = np.linspace(1, 2, 10000)
+    fit_class = DAP_Set(dists, dielectric=8.9)
+    coincidence_calc = Co_Match([0, np.inf], checker_blocking)
+    M_mat = Generate_Fit(fit_class, coincidence_calc, sim_data, fit_energies).run()
+    print(M_mat[6383, :])
+    co = co_calc(M_mat, .001, Step_Penalty(50))
+    print(M_mat[6383, :])
+    det = det_calc(M_mat, np.inf)
+    print(M_mat[6383, :])
+
+
+
 if __name__ == '__main__':
-    main()
+
+    main2()
