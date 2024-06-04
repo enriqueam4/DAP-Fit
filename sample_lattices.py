@@ -2,6 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
+from DAP_Fit import *
 
 
 # Returns Hexagonal Lattice Distances in ordered list in units of 10^(-13) meters
@@ -26,6 +27,107 @@ def hex_lattice_maker(lat_ext, a=2.51, c=6.66):
     r_vec.discard(0)
     r_vec = sorted(r_vec)
     return r_vec
+
+
+# Returns Hexagonal Lattice Distances in ordered list in units of 10^(-13) meters
+# Input Lattice Constants in Angstroms
+# Default values of a and c are set to those of hexagonal boron nitride [REF]
+def hex_lattice_maker_mono(lat_ext, a=2.51):
+    vec_a1 = a * np.array([(np.sqrt(3)) / 2, 1 / 2, 0])
+    vec_a2 = a * np.array([(np.sqrt(3)) / 2, -1 / 2, 0])
+    vec_B2N = (a / np.sqrt(3)) * np.array([-1, 0, 0])
+    r_vec = []
+    for x in range(-lat_ext, lat_ext):
+        for y in range(-lat_ext, lat_ext):
+            for element in [1, 2]:
+                dist = x * vec_a1 + y * vec_a2 + vec_B2N * (element - 1)
+                Ar_m = np.sqrt(sum(dist * dist))
+                # Round to 3 decimal places and then convert to integer in units of 1/1000th of an angstrom
+                r_vec.append(int(round(Ar_m, 3) * 1000))
+    r_vec = sorted(r_vec)
+    r_vec = set(r_vec)
+    r_vec.discard(0)
+    r_vec = sorted(r_vec)
+    return r_vec
+
+
+def hex_lattice_maker_bulk(lat_ext, a=2.51, c=6.66):
+    vec_a1 = a * np.array([(np.sqrt(3)) / 2, 1 / 2, 0])
+    vec_a2 = a * np.array([(np.sqrt(3)) / 2, -1 / 2, 0])
+    vec_a3 = c * np.array([0, 0, 1 / 2])
+    vec_B2N = (a / np.sqrt(3)) * np.array([-1, 0, 0])
+    r_vec = []
+    for layer in range(-lat_ext, lat_ext):
+        for x in range(-lat_ext, lat_ext):
+            for y in range(-lat_ext, lat_ext):
+                for element in [1, 2]:
+                    dist = x * vec_a1 + y * vec_a2 + vec_B2N * (element - 1) + vec_a3 * layer
+                    Ar_m = np.sqrt(sum(dist * dist))
+                    # Round to 3 decimal places and then convert to integer in units of 1/1000th of an angstrom
+                    r_vec.append(int(round(Ar_m, 3) * 1000))
+    r_vec = sorted(r_vec)
+    r_vec = set(r_vec)
+    r_vec.discard(0)
+    r_vec = sorted(r_vec)
+    return r_vec
+
+
+# Returns Hexagonal Lattice Distances in ordered list in units of 10^(-13) meters
+# Input Lattice Constants in Angstroms
+# Default values of a and c are set to those of hexagonal boron nitride [REF]
+def hex_lattice_maker_bulk_3D(lat_ext, a=2.51, c=6.66):
+    vec_a1 = a * np.array([(np.sqrt(3)) / 2, 1 / 2, 0])
+    vec_a2 = a * np.array([(np.sqrt(3)) / 2, -1 / 2, 0])
+    vec_a3 = c * np.array([0, 0, 1 / 2])
+    vec_B2N = (a / np.sqrt(3)) * np.array([-1, 0, 0])
+    r_vec = []
+    for layer in [0, 1]:
+        for x in range(-lat_ext, lat_ext):
+            for y in range(-lat_ext, lat_ext):
+                for element in [1, 2]:
+                    dist = x * vec_a1 + y * vec_a2 + vec_B2N * (element - 1) + vec_a3 * layer
+                    # Round to 3 decimal places and then convert to integer in units of 1/1000th of an angstrom
+                    r_vec.append(dist * 1000)
+    return r_vec
+
+
+def generate_const(dists, di_mat):
+    e = 1.60217663 * 10 ** (-19)  # Units C
+    pi = 3.13159265353  # Unitless
+    eps_0 = 8.8541878128 * 10 ** (-12)  # Units C/V*m
+    k = e * 10 ** 13 / (4 * pi * eps_0)  # Only one unit of e to keep in eV
+    ens = []
+    r_mags = []
+    r_angles = []
+    for i, el in enumerate(dists):
+        tmp = np.dot(di_mat, el)
+        tmp2 = np.sqrt(np.dot(tmp, tmp))
+        if tmp2 != 0:
+            ens.append(k/tmp2)
+            r_mags.append(np.sqrt(np.dot(el, el)))
+            r_angles.append(np.abs(np.arctan(np.abs(el[2] / np.sqrt(el[0]**2 +el[1]**2)))) * 180 / np.pi)
+
+    for i, el in enumerate(ens):
+        ens[i] = round(el, 5)
+
+    ens, r_mags, r_angles = zip(*sorted(zip(ens, r_mags, r_angles), reverse=True))
+
+    # There must me a more elegant way to do this..
+    ens2 = []
+    r_mags2 = []
+    r_angles2 = []
+    for n, el in enumerate(ens):
+        if el not in ens2:
+            ens2.append(el)
+            r_mags2.append(round(r_mags[n], 5))
+            r_angles2.append(round(r_angles[n], 5))
+
+    # ens2.pop(0)
+    # r_mags2.pop(0)
+    # r_angles2.pop(0)
+    print("f")
+    return np.asarray(ens2), np.asarray(r_mags2), np.asarray(r_angles2)
+
 
 
 # Returns Diamond Lattice Distances in ordered list in units of 10^(-13) meters
@@ -138,5 +240,18 @@ def energy_from_distance(dist, en, dielectric=6.93):
 
 
 if __name__ == '__main__':
-    dists = wurtzite_lattice_maker(11)[:100]
-    ens = energy_from_distance(dists, 0)
+    d1 = 6.93
+    d2 = 3.76
+    dists = hex_lattice_maker_bulk_3D(11)
+    b, a, g = generate_const(dists, np.asarray([[d1, 0, 0], [0, d1, 0], [0, 0, d2]]))
+    b = b[0:25]
+    g = g[0:25]
+    a = a[0:25]
+    print(a)
+    print(g)
+    ens1 = DAP_Set_3D(b).set(1.5)
+    fig, ax = plt.subplots()
+    for line in ens1:
+        ax.vlines(line, 0, 1)
+    print(ens1)
+    plt.show()
